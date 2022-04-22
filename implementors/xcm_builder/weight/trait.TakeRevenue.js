@@ -1,0 +1,5 @@
+(function() {var implementors = {};
+implementors["interlay_runtime_parachain"] = [{"text":"impl TakeRevenue for <a class=\"struct\" href=\"interlay_runtime_parachain/xcm_config/struct.ToAuthor.html\" title=\"struct interlay_runtime_parachain::xcm_config::ToAuthor\">ToAuthor</a>","synthetic":false,"types":["interlay_runtime_parachain::xcm_config::ToAuthor"]}];
+implementors["kintsugi_runtime_parachain"] = [{"text":"impl TakeRevenue for <a class=\"struct\" href=\"kintsugi_runtime_parachain/xcm_config/struct.ToTreasury.html\" title=\"struct kintsugi_runtime_parachain::xcm_config::ToTreasury\">ToTreasury</a>","synthetic":false,"types":["kintsugi_runtime_parachain::xcm_config::ToTreasury"]}];
+implementors["testnet_runtime_parachain"] = [{"text":"impl TakeRevenue for <a class=\"struct\" href=\"testnet_runtime_parachain/xcm_config/struct.ToTreasury.html\" title=\"struct testnet_runtime_parachain::xcm_config::ToTreasury\">ToTreasury</a>","synthetic":false,"types":["testnet_runtime_parachain::xcm_config::ToTreasury"]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

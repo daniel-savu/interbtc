@@ -1,0 +1,1 @@
+initSidebarItems({"constant":[["BITCOIN_BLOCK_SPACING",""],["BITCOIN_SPACING_MS",""],["DAYS",""],["HOURS",""],["MILLISECS_PER_BLOCK",""],["MINUTES",""],["SLOT_DURATION",""],["WEEKS",""],["YEARS",""]]});

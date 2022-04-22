@@ -1,0 +1,1 @@
+initSidebarItems({"constant":[["CENTS",""],["GRAND",""],["KBTC",""],["KINT",""],["KSM",""],["MILLICENTS",""],["NATIVE_CURRENCY_ID",""],["PARENT_CURRENCY_ID",""],["UNITS",""],["WRAPPED_CURRENCY_ID",""]],"enum":[["CurrencyId",""]],"fn":[["deposit",""]],"type":[["Balance","Balance of an account."]]});
