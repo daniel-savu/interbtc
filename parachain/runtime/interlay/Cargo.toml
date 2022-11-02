@@ -109,14 +109,14 @@ module-replace-rpc-runtime-api = { path = "../../../crates/replace/rpc/runtime-a
 loans-rpc-runtime-api = { path = "../../../crates/loans/rpc/runtime-api", default-features = false }
 
 # Orml dependencies
-orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "ae13a54dbc1a654df0e2d5e9dc18582b62716365", default-features = false }
-orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "ae13a54dbc1a654df0e2d5e9dc18582b62716365", default-features = false }
-orml-vesting = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "ae13a54dbc1a654df0e2d5e9dc18582b62716365", default-features = false }
+orml-tokens = { git = "https://github.com/interlay/open-runtime-module-library", rev = "6c57463f7629511bfcecfdb19c6e7a58f4d27e14", default-features = false }
+orml-traits = { git = "https://github.com/interlay/open-runtime-module-library", rev = "6c57463f7629511bfcecfdb19c6e7a58f4d27e14", default-features = false }
+orml-vesting = { git = "https://github.com/interlay/open-runtime-module-library", rev = "6c57463f7629511bfcecfdb19c6e7a58f4d27e14", default-features = false }
 
-orml-xtokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "ae13a54dbc1a654df0e2d5e9dc18582b62716365", default-features = false }
-orml-xcm-support = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "ae13a54dbc1a654df0e2d5e9dc18582b62716365", default-features = false }
-orml-unknown-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "ae13a54dbc1a654df0e2d5e9dc18582b62716365", default-features = false }
-orml-asset-registry= { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "ae13a54dbc1a654df0e2d5e9dc18582b62716365", default-features = false }
+orml-xtokens = { git = "https://github.com/interlay/open-runtime-module-library", rev = "6c57463f7629511bfcecfdb19c6e7a58f4d27e14", default-features = false }
+orml-xcm-support = { git = "https://github.com/interlay/open-runtime-module-library", rev = "6c57463f7629511bfcecfdb19c6e7a58f4d27e14", default-features = false }
+orml-unknown-tokens = { git = "https://github.com/interlay/open-runtime-module-library", rev = "6c57463f7629511bfcecfdb19c6e7a58f4d27e14", default-features = false }
+orml-asset-registry= { git = "https://github.com/interlay/open-runtime-module-library", rev = "6c57463f7629511bfcecfdb19c6e7a58f4d27e14", default-features = false }
 
 [dev-dependencies]
 hex = '0.4.2'

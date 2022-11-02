@@ -25,8 +25,8 @@ frame-system = { git = "https://github.com/paritytech/substrate", branch = "polk
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", default-features = false, optional = true }
 
 # note: can be remove after removal of migration
-orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "ae13a54dbc1a654df0e2d5e9dc18582b62716365", default-features = false }
-orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "ae13a54dbc1a654df0e2d5e9dc18582b62716365", default-features = false }
+orml-tokens = { git = "https://github.com/interlay/open-runtime-module-library", rev = "6c57463f7629511bfcecfdb19c6e7a58f4d27e14", default-features = false }
+orml-traits = { git = "https://github.com/interlay/open-runtime-module-library", rev = "6c57463f7629511bfcecfdb19c6e7a58f4d27e14", default-features = false }
 
 [dev-dependencies]
 mocktopus = "0.7.0"
