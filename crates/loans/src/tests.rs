@@ -21,8 +21,10 @@ mod lend_tokens;
 mod liquidate_borrow;
 mod market;
 
+use currency::CurrencyConversion;
 use frame_support::{assert_noop, assert_ok};
 
+use mocktopus::mocking::{MockResult, Mockable};
 use sp_runtime::{
     traits::{CheckedDiv, One, Saturating},
     FixedU128, Permill,
@@ -535,7 +537,7 @@ fn get_account_liquidation_threshold_liquidity_works() {
 
         assert_eq!(liquidity, FixedU128::from_inner(unit(20)));
 
-        MockPriceFeeder::set_price(KSM, 2.into());
+        CurrencyConvert::convert.mock_safe(with_price(Some((KSM, 2.into()))));
         let (liquidity, shortfall) = Loans::get_account_liquidation_threshold_liquidity(&ALICE).unwrap();
 
         assert_eq!(liquidity, FixedU128::from_inner(unit(0)));
@@ -897,17 +899,6 @@ fn calc_collateral_amount_works() {
     // relative test: prevent_the_exchange_rate_attack
     let exchange_rate = Rate::saturating_from_rational(30000, 1);
     assert_eq!(Loans::calc_collateral_amount(10000, exchange_rate).unwrap(), 0);
-}
-
-#[test]
-fn get_price_works() {
-    new_test_ext().execute_with(|| {
-        MockPriceFeeder::set_price(DOT, 0.into());
-        assert_noop!(Loans::get_price(DOT), Error::<Test>::PriceIsZero);
-
-        MockPriceFeeder::set_price(DOT, 2.into());
-        assert_eq!(Loans::get_price(DOT).unwrap(), Price::saturating_from_integer(2));
-    })
 }
 
 #[test]
@@ -1363,7 +1354,7 @@ fn reward_calculation_after_liquidate_borrow_works() {
         assert_eq!(almost_equal(Loans::reward_accrued(ALICE), unit(14)), true);
         assert_eq!(almost_equal(Loans::reward_accrued(BOB), unit(16)), true);
 
-        MockPriceFeeder::set_price(KSM, 2.into());
+        CurrencyConvert::convert.mock_safe(with_price(Some((KSM, 2.into()))));
         // since we set liquidate_threshold more than collateral_factor,with KSM price as 2 alice not shortfall yet.
         // so we can not liquidate_borrow here
         assert_noop!(
@@ -1378,7 +1369,7 @@ fn reward_calculation_after_liquidate_borrow_works() {
         // Bob KSM Deposit: 500
         // Bob KSM Borrow: 75
         // incentive_reward_account DOT Deposit: 75*0.03 = 2.25
-        MockPriceFeeder::set_price(KSM, 3.into());
+        CurrencyConvert::convert.mock_safe(with_price(Some((KSM, 3.into()))));
         assert_ok!(Loans::liquidate_borrow(
             RuntimeOrigin::signed(BOB),
             ALICE,

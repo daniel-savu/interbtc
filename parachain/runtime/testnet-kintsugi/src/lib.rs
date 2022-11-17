@@ -28,7 +28,6 @@ use loans::{OnSlashHook, PostDeposit, PostTransfer, PreDeposit, PreTransfer};
 use orml_asset_registry::SequentialId;
 use orml_traits::{currency::MutationHooks, location::AbsoluteReserveProvider, parameter_type_with_key, MultiCurrency};
 use pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
-use primitives::PriceDetail;
 use sp_api::impl_runtime_apis;
 use sp_core::{OpaqueMetadata, H256};
 use sp_runtime::{
@@ -41,7 +40,6 @@ use sp_std::{marker::PhantomData, prelude::*};
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
-use traits::OracleApi;
 use xcm_executor::{traits::WeightTrader, Assets};
 
 // A few exports that help ease life for downstream crates.

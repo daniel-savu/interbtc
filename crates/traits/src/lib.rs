@@ -3,8 +3,6 @@
 use frame_support::dispatch::DispatchError;
 use num_bigint::{BigUint, ToBigUint};
 
-use primitives::{CurrencyId, PriceDetail};
-
 pub mod loans;
 pub use loans::*;
 

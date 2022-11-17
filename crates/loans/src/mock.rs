@@ -27,7 +27,7 @@ use frame_support::{
     PalletId,
 };
 use frame_system::EnsureRoot;
-use mocktopus::macros::mockable;
+use mocktopus::{macros::mockable, mocking::MockResult};
 use orml_traits::{currency::MutationHooks, parameter_type_with_key, DataFeeder, DataProvider, DataProviderExtended};
 use primitives::{
     CurrencyId::{ForeignAsset, LendToken, Token},
@@ -149,6 +149,7 @@ pub type SignedFixedPoint = FixedI128;
 pub type SignedInner = i128;
 pub type UnsignedFixedPoint = FixedU128;
 pub struct CurrencyConvert;
+#[cfg_attr(test, mockable)]
 impl currency::CurrencyConversion<currency::Amount<Test>, CurrencyId> for CurrencyConvert {
     fn convert(
         amount: &currency::Amount<Test>,
@@ -159,7 +160,6 @@ impl currency::CurrencyConversion<currency::Amount<Test>, CurrencyId> for Curren
     }
 }
 
-#[cfg_attr(test, mockable)]
 pub fn convert_to(to: CurrencyId, amount: Balance) -> Result<Balance, sp_runtime::DispatchError> {
     Ok(amount) // default conversion 1:1 - overwritable with mocktopus
 }
@@ -183,45 +183,6 @@ impl currency::Config for Test {
     type GetRelayChainCurrencyId = GetCollateralCurrencyId;
     type GetWrappedCurrencyId = GetWrappedCurrencyId;
     type CurrencyConversion = CurrencyConvert;
-}
-
-// pallet-price is using for benchmark compilation
-pub type TimeStampedPrice = orml_oracle::TimestampedValue<Price, Moment>;
-pub struct MockDataProvider;
-impl DataProvider<CurrencyId, TimeStampedPrice> for MockDataProvider {
-    fn get(_asset_id: &CurrencyId) -> Option<TimeStampedPrice> {
-        Some(TimeStampedPrice {
-            value: Price::saturating_from_integer(100),
-            timestamp: 0,
-        })
-    }
-}
-
-impl DataProviderExtended<CurrencyId, TimeStampedPrice> for MockDataProvider {
-    fn get_no_op(_key: &CurrencyId) -> Option<TimeStampedPrice> {
-        None
-    }
-
-    fn get_all_values() -> Vec<(CurrencyId, Option<TimeStampedPrice>)> {
-        vec![]
-    }
-}
-
-impl DataFeeder<CurrencyId, TimeStampedPrice, AccountId> for MockDataProvider {
-    fn feed_value(_: AccountId, _: CurrencyId, _: TimeStampedPrice) -> sp_runtime::DispatchResult {
-        Ok(())
-    }
-}
-
-parameter_types! {
-    pub const RelayCurrency: CurrencyId = Token(KSM);
-}
-
-pub struct AliceCreatePoolOrigin;
-impl SortedMembers<AccountId> for AliceCreatePoolOrigin {
-    fn sorted_members() -> Vec<AccountId> {
-        vec![ALICE]
-    }
 }
 
 parameter_types! {
@@ -255,7 +216,34 @@ pub const LEND_IBTC: CurrencyId = LendToken(5);
 pub const DEFAULT_MAX_EXCHANGE_RATE: u128 = 1_000_000_000_000_000_000; // 1
 pub const DEFAULT_MIN_EXCHANGE_RATE: u128 = 20_000_000_000_000_000; // 0.02
 
+#[cfg(test)]
+pub fn with_price(
+    maybe_currency_price: Option<(CurrencyId, FixedU128)>,
+) -> impl Fn(Amount<Test>, CurrencyId) -> MockResult<(Amount<Test>, CurrencyId), Result<Amount<Test>, DispatchError>> {
+    move |amount: Amount<Test>, to: CurrencyId| {
+        if to == DEFAULT_WRAPPED_CURRENCY {
+            if let Some((currency, price)) = maybe_currency_price && amount.currency() == currency {
+                let fixed_point_amount = amount.to_unsigned_fixed_point().unwrap();
+                let new_amount = fixed_point_amount.mul(price);
+                MockResult::Return(Amount::from_unsigned_fixed_point(new_amount, to))
+            } else {
+                // The default is a 1:1 exchange rate
+                MockResult::Return(Ok(Amount::new(amount.amount(), to)))
+            }
+        } else if amount.currency() == DEFAULT_WRAPPED_CURRENCY {
+            // The default is a 1:1 exchange rate
+            MockResult::Return(Ok(Amount::new(amount.amount(), to)))
+        } else {
+            MockResult::Return(Err(Error::<Test>::InvalidExchangeRate.into()))
+        }
+    }
+}
+
+#[cfg(test)]
 pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
+    use currency::CurrencyConversion;
+    use mocktopus::mocking::{MockResult, Mockable};
+
     let mut t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
 
     GenesisBuild::<Test>::assimilate_storage(
@@ -289,10 +277,8 @@ pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
         )
         .unwrap();
 
-        MockPriceFeeder::set_price(Token(KBTC), 1.into());
-        MockPriceFeeder::set_price(Token(DOT), 1.into());
-        MockPriceFeeder::set_price(Token(KSM), 1.into());
-        MockPriceFeeder::set_price(LEND_DOT, 1.into());
+        // Set exchange rate with the reference currency to the default value
+        CurrencyConvert::convert.mock_safe(with_price(None));
         // Init Markets
         Loans::add_market(RuntimeOrigin::root(), Token(DOT), market_mock(LEND_DOT)).unwrap();
         Loans::activate_market(RuntimeOrigin::root(), Token(DOT)).unwrap();

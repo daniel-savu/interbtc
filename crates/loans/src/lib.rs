@@ -42,7 +42,7 @@ use frame_system::pallet_prelude::*;
 use num_traits::cast::ToPrimitive;
 use orml_traits::{MultiCurrency, MultiReservableCurrency};
 pub use pallet::*;
-use primitives::{Balance, CurrencyId, Liquidity, Price, Rate, Ratio, Shortfall, Timestamp};
+use primitives::{Balance, CurrencyId, Liquidity, Rate, Ratio, Shortfall, Timestamp};
 use sp_runtime::{
     traits::{
         AccountIdConversion, CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, One, SaturatedConversion, Saturating,
@@ -176,7 +176,9 @@ pub mod pallet {
     use super::*;
 
     #[pallet::config]
-    pub trait Config: frame_system::Config + currency::Config<Balance = BalanceOf<Self>> {
+    pub trait Config:
+        frame_system::Config + currency::Config<Balance = BalanceOf<Self>, UnsignedFixedPoint = FixedU128>
+    {
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
         /// The loan's module id, keep all collaterals of CDPs.
@@ -1536,19 +1538,9 @@ impl<T: Config> Pallet<T> {
         }
 
         // Calculate the collateral will get
-        //
-        // amount: 1 Unit = 10^12 pico
-        // price is for 1 pico: 1$ = FixedU128::saturating_from_rational(1, 10^12)
-        // if price is N($) and amount is M(Unit):
-        // liquidate_value = price * amount = (N / 10^12) * (M * 10^12) = N * M
-        // if liquidate_value >= 340282366920938463463.374607431768211455,
-        // FixedU128::saturating_from_integer(liquidate_value) will overflow, so we use from_inner
-        // instead of saturating_from_integer, and after calculation use into_inner to get final value.
-        let collateral_token_price = Self::get_price(collateral_asset_id)?;
-        let real_collateral_underlying_amount = liquidate_value
-            .checked_div(&collateral_token_price)
-            .ok_or(ArithmeticError::Underflow)?
-            .into_inner();
+        let liquidate_value_amount =
+            Amount::<T>::from_unsigned_fixed_point(liquidate_value, T::ReferenceAssetId::get())?;
+        let real_collateral_underlying_amount = liquidate_value_amount.convert_to(collateral_asset_id)?.amount();
 
         //inside transfer token
         Self::liquidated_transfer(
@@ -1801,19 +1793,12 @@ impl<T: Config> Pallet<T> {
         Ok(amount)
     }
 
-    // Returns the value of the asset, in dollars.
-    // Formula: `value = oracle_price * balance / 1e18(oracle_price_decimal) / asset_decimal`
-    // As the price is a result of `oracle_price * 10.pow(18 - asset_decimal)`,
-    // then `value = price * balance / 1e18`.
-    // We use FixedU128::from_inner(balance) instead of `balance / 1e18`.
-    //
+    // Returns the value of the asset, in the reference currency.
     // Returns `Err` if oracle price not ready or arithmetic error.
     pub fn get_asset_value(asset_id: AssetIdOf<T>, amount: BalanceOf<T>) -> Result<FixedU128, DispatchError> {
-        let value = Self::get_price(asset_id)?
-            .checked_mul(&FixedU128::from_inner(amount))
-            .ok_or(ArithmeticError::Overflow)?;
-
-        Ok(value)
+        let asset_amount = Amount::<T>::new(amount, asset_id);
+        let reference_amount = asset_amount.convert_to(T::ReferenceAssetId::get())?;
+        reference_amount.to_unsigned_fixed_point()
     }
 
     // Returns a stored Market.

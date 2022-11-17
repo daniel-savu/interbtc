@@ -36,7 +36,6 @@ use sp_runtime::{
     ApplyExtrinsicResult, FixedPointNumber, Perquintill,
 };
 use sp_std::{marker::PhantomData, prelude::*};
-use traits::OracleApi;
 
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
