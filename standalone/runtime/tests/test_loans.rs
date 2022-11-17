@@ -1,4 +1,4 @@
-use interbtc_runtime_standalone::{CurrencyId::Token, Tokens, KINT};
+use interbtc_runtime_standalone::{CurrencyId::Token, RuntimeOrigin, Tokens, KINT};
 mod mock;
 use loans::{InterestRateModel, JumpModel, Market, MarketState};
 use mock::{assert_eq, *};
@@ -74,7 +74,14 @@ fn test_real_market<R>(execute: impl Fn() -> R) {
         set_up_market(
             Token(DOT),
             FixedU128::from_inner(324_433_053_239_464_036_596_000),
+            //       291,247,997,670,015,998,361,600
             LEND_DOT,
+        );
+        set_up_market(
+            Token(IBTC),
+            // Any value, this will not be considered when converting from IBTC to IBTC
+            FixedU128::one(),
+            LEND_IBTC,
         );
         execute()
     });
@@ -306,5 +313,52 @@ fn integration_test_lend_token_transfer_reserved_fails() {
         assert_eq!(free_balance(LEND_DOT, &vault_account_id), 0);
         assert_eq!(reserved_balance(LEND_DOT, &vault_account_id), 500);
         assert_eq!(free_balance(LEND_DOT, &lp_account_id), 500);
+    });
+}
+
+#[test]
+fn integration_test_switching_the_backing_collateral_works() {
+    test_real_market(|| {
+        // One DOT has 10^2 decimal offset to one BTC
+        let dot_to_btc_decimal_offset = 100;
+
+        let dot = Token(DOT);
+        let ibtc = Token(IBTC);
+
+        assert_ok!(RuntimeCall::Tokens(TokensCall::set_balance {
+            who: account_of(USER),
+            currency_id: ibtc,
+            new_free: 1000,
+            new_reserved: 0
+        })
+        .dispatch(RuntimeOrigin::root()));
+
+        // deposit DOT, enable as collateral, and also borrow DOT
+        assert_ok!(RuntimeCall::Loans(LoansCall::mint {
+            asset_id: dot,
+            mint_amount: 1000 * dot_to_btc_decimal_offset,
+        })
+        .dispatch(origin_of(account_of(USER))));
+        assert_ok!(RuntimeCall::Loans(LoansCall::deposit_all_collateral { asset_id: dot })
+            .dispatch(origin_of(account_of(USER))));
+        assert_ok!(RuntimeCall::Loans(LoansCall::borrow {
+            asset_id: dot,
+            borrow_amount: 300 * dot_to_btc_decimal_offset
+        })
+        .dispatch(origin_of(account_of(USER))));
+
+        // deposit BTC, enable as collateral
+        assert_ok!(RuntimeCall::Loans(LoansCall::mint {
+            asset_id: ibtc,
+            mint_amount: 5,
+        })
+        .dispatch(origin_of(account_of(USER))));
+        assert_ok!(RuntimeCall::Loans(LoansCall::deposit_all_collateral { asset_id: ibtc })
+            .dispatch(origin_of(account_of(USER))));
+
+        // must be able to disable DOT as collateral, because the BTC collateral is enough
+        // to cover the existing loan
+        assert_ok!(RuntimeCall::Loans(LoansCall::withdraw_all_collateral { asset_id: dot })
+            .dispatch(origin_of(account_of(USER))));
     });
 }
