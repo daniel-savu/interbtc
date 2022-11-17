@@ -51,9 +51,7 @@ use sp_runtime::{
     ArithmeticError, FixedPointNumber, FixedU128,
 };
 use sp_std::{marker, result::Result};
-use traits::{
-    ConvertToBigUint, LoansApi as LoansTrait, LoansMarketDataProvider, MarketInfo, MarketStatus, PriceFeeder,
-};
+use traits::{ConvertToBigUint, LoansApi as LoansTrait, LoansMarketDataProvider, MarketInfo, MarketStatus};
 
 pub use orml_traits::currency::{OnDeposit, OnSlash, OnTransfer};
 use sp_io::hashing::blake2_256;
@@ -181,9 +179,6 @@ pub mod pallet {
     pub trait Config: frame_system::Config + currency::Config<Balance = BalanceOf<Self>> {
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
-        /// The oracle price feeder
-        type PriceFeeder: PriceFeeder;
-
         /// The loan's module id, keep all collaterals of CDPs.
         #[pallet::constant]
         type PalletId: Get<PalletId>;
@@ -209,6 +204,10 @@ pub mod pallet {
         /// Reward asset id.
         #[pallet::constant]
         type RewardAssetId: Get<AssetIdOf<Self>>;
+
+        /// Reference currency for expressing asset prices. Example: USD, IBTC.
+        #[pallet::constant]
+        type ReferenceAssetId: Get<AssetIdOf<Self>>;
     }
 
     #[pallet::error]
@@ -1800,24 +1799,6 @@ impl<T: Config> Pallet<T> {
             lend_token_id,
         );
         Ok(amount)
-    }
-
-    // Returns the uniform format price.
-    // Formula: `price = oracle_price * 10.pow(18 - asset_decimal)`
-    // This particular price makes it easy to calculate the value ,
-    // because we don't have to consider decimal for each asset. ref: get_asset_value
-    //
-    // Returns `Err` if the oracle price not ready
-    pub fn get_price(asset_id: AssetIdOf<T>) -> Result<Price, DispatchError> {
-        let (price, _) = T::PriceFeeder::get_price(&asset_id).ok_or(Error::<T>::PriceOracleNotReady)?;
-        if price.is_zero() {
-            return Err(Error::<T>::PriceIsZero.into());
-        }
-        log::trace!(
-            target: "loans::get_price", "price: {:?}", price.into_inner()
-        );
-
-        Ok(price)
     }
 
     // Returns the value of the asset, in dollars.

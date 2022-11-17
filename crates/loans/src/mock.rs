@@ -224,45 +224,6 @@ impl SortedMembers<AccountId> for AliceCreatePoolOrigin {
     }
 }
 
-pub struct MockPriceFeeder;
-
-impl MockPriceFeeder {
-    thread_local! {
-        pub static PRICES: RefCell<HashMap<CurrencyId, Option<PriceDetail>>> = {
-            RefCell::new(
-                vec![Token(KINT), Token(DOT), Token(KSM), Token(KBTC), Token(INTR), Token(IBTC), ForeignAsset(100000)]
-                    .iter()
-                    .map(|&x| (x, Some((Price::saturating_from_integer(1), 1))))
-                    .collect()
-            )
-        };
-    }
-
-    pub fn set_price(asset_id: CurrencyId, price: Price) {
-        Self::PRICES.with(|prices| {
-            prices.borrow_mut().insert(asset_id, Some((price, 1u64)));
-        });
-    }
-
-    pub fn reset() {
-        Self::PRICES.with(|prices| {
-            for (_, val) in prices.borrow_mut().iter_mut() {
-                *val = Some((Price::saturating_from_integer(1), 1u64));
-            }
-        })
-    }
-}
-
-impl PriceFeeder for MockPriceFeeder {
-    fn get_price(asset_id: &CurrencyId) -> Option<PriceDetail> {
-        Self::PRICES.with(|prices| {
-            let p = prices.borrow();
-            let v = p.get(asset_id).unwrap();
-            *v
-        })
-    }
-}
-
 parameter_types! {
     pub const MaxLocks: u32 = 50;
 }
@@ -270,11 +231,11 @@ parameter_types! {
 parameter_types! {
     pub const LoansPalletId: PalletId = PalletId(*b"par/loan");
     pub const RewardAssetId: CurrencyId = Token(KINT);
+    pub const ReferenceAssetId: CurrencyId = Token(KBTC);
 }
 
 impl Config for Test {
     type RuntimeEvent = RuntimeEvent;
-    type PriceFeeder = MockPriceFeeder;
     type PalletId = LoansPalletId;
     type ReserveOrigin = EnsureRoot<AccountId>;
     type UpdateOrigin = EnsureRoot<AccountId>;
@@ -282,6 +243,7 @@ impl Config for Test {
     type UnixTime = TimestampPallet;
     type Assets = Tokens;
     type RewardAssetId = RewardAssetId;
+    type ReferenceAssetId = ReferenceAssetId;
 }
 
 pub const LEND_DOT: CurrencyId = LendToken(1);
