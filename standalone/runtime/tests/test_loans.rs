@@ -1,4 +1,4 @@
-use interbtc_runtime_standalone::{CurrencyId::Token, RuntimeOrigin, Tokens, KINT};
+use interbtc_runtime_standalone::{CurrencyId::Token, CurrencyInfo, Tokens, KINT};
 mod mock;
 use loans::{InterestRateModel, JumpModel, Market, MarketState};
 use mock::{assert_eq, *};
@@ -79,7 +79,7 @@ fn test_real_market<R>(execute: impl Fn() -> R) {
         );
         set_up_market(
             Token(IBTC),
-            // Any value, this will not be considered when converting from IBTC to IBTC
+            // Any value. This will not be considered when converting from IBTC to IBTC.
             FixedU128::one(),
             LEND_IBTC,
         );
@@ -87,32 +87,46 @@ fn test_real_market<R>(execute: impl Fn() -> R) {
     });
 }
 
+pub fn almost_equal(target: u128, value: u128, precision: u8) -> bool {
+    let target = target as i128;
+    let value = value as i128;
+    let diff = (target - value).abs() as u128;
+    let delta = 10_u128.pow(precision.into());
+    diff < delta
+}
+
 #[test]
 fn integration_test_liquidation() {
     test_real_market(|| {
         let kint = Token(KINT);
+        let one_kint = KINT.one();
         let ksm = Token(KSM);
+        let one_ksm = KSM.one();
+        let lend_kint_precision = KINT.decimals();
         let user = account_of(USER);
         let lp = account_of(LP);
+        set_balance(user.clone(), kint, 1000 * one_kint);
+        set_balance(user.clone(), ksm, 1000 * one_ksm);
+        set_balance(lp.clone(), ksm, 1000 * one_ksm);
 
         assert_ok!(RuntimeCall::Loans(LoansCall::mint {
             asset_id: kint,
-            mint_amount: 1000,
+            mint_amount: 1000 * one_kint,
         })
         .dispatch(origin_of(user.clone())));
 
         // Check entries from orml-tokens directly
-        assert_eq!(free_balance(LEND_KINT, &user), 1000);
+        assert_eq!(free_balance(LEND_KINT, &user), 1000 * one_kint);
         assert_eq!(reserved_balance(LEND_KINT, &user), 0);
 
         assert_ok!(RuntimeCall::Loans(LoansCall::mint {
             asset_id: ksm,
-            mint_amount: 50,
+            mint_amount: 50 * one_ksm,
         })
         .dispatch(origin_of(lp.clone())));
 
         // Check entries from orml-tokens directly
-        assert_eq!(free_balance(LEND_KSM, &lp), 50);
+        assert_eq!(free_balance(LEND_KSM, &lp), 50 * one_ksm);
         assert_eq!(reserved_balance(LEND_KSM, &lp), 0);
 
         assert_ok!(
@@ -121,30 +135,30 @@ fn integration_test_liquidation() {
 
         // Check entries from orml-tokens directly
         assert_eq!(free_balance(LEND_KINT, &user), 0);
-        assert_eq!(reserved_balance(LEND_KINT, &user), 1000);
+        assert_eq!(reserved_balance(LEND_KINT, &user), 1000 * one_kint);
 
         assert_err!(
             RuntimeCall::Loans(LoansCall::borrow {
                 asset_id: ksm,
-                borrow_amount: 20,
+                borrow_amount: 40 * one_ksm,
             })
             .dispatch(origin_of(user.clone())),
             LoansError::InsufficientLiquidity
         );
 
-        assert_eq!(free_balance(ksm, &user), 1000000000000);
+        assert_eq!(free_balance(ksm, &user), 1000 * one_ksm);
         assert_ok!(RuntimeCall::Loans(LoansCall::borrow {
             asset_id: ksm,
-            borrow_amount: 15,
+            borrow_amount: 15 * one_ksm,
         })
         .dispatch(origin_of(user.clone())));
-        assert_eq!(free_balance(ksm, &user), 1000000000015);
+        assert_eq!(free_balance(ksm, &user), 1015 * one_ksm);
 
         assert_err!(
             RuntimeCall::Loans(LoansCall::liquidate_borrow {
                 borrower: user.clone(),
                 liquidation_asset_id: ksm,
-                repay_amount: 15,
+                repay_amount: 15 * one_ksm,
                 collateral_asset_id: kint
             })
             .dispatch(origin_of(lp.clone())),
@@ -161,25 +175,35 @@ fn integration_test_liquidation() {
         assert_ok!(RuntimeCall::Loans(LoansCall::liquidate_borrow {
             borrower: user.clone(),
             liquidation_asset_id: ksm,
-            repay_amount: 7,
+            repay_amount: 7 * one_ksm,
             collateral_asset_id: kint
         })
         .dispatch(origin_of(lp.clone())));
 
         assert_eq!(free_balance(LEND_KINT, &user), 0);
         // borrower's reserved collateral is slashed
-        assert_eq!(reserved_balance(LEND_KINT, &user), 610);
+        assert_eq!(
+            almost_equal(reserved_balance(LEND_KINT, &user), 610 * one_kint, lend_kint_precision),
+            true
+        );
         // borrower's borrowed balance is unchanged
-        assert_eq!(free_balance(ksm, &user), 1000000000015);
+        assert_eq!(free_balance(ksm, &user), 1015 * one_ksm);
 
         // the liquidator receives most of the slashed collateral
         assert_eq!(reserved_balance(LEND_KINT, &lp), 0);
-        assert_eq!(free_balance(LEND_KINT, &lp), 380);
+        assert_eq!(
+            almost_equal(free_balance(LEND_KINT, &lp), 380 * one_kint, lend_kint_precision),
+            true
+        );
 
         // the rest of the slashed collateral routed to the incentive reward account's free balance
         assert_eq!(
-            free_balance(LEND_KINT, &LoansPallet::incentive_reward_account_id().unwrap()),
-            10
+            almost_equal(
+                free_balance(LEND_KINT, &LoansPallet::incentive_reward_account_id().unwrap()),
+                10 * one_kint,
+                lend_kint_precision
+            ),
+            true
         );
         assert_eq!(
             reserved_balance(LEND_KINT, &LoansPallet::incentive_reward_account_id().unwrap()),
@@ -319,45 +343,38 @@ fn integration_test_lend_token_transfer_reserved_fails() {
 #[test]
 fn integration_test_switching_the_backing_collateral_works() {
     test_real_market(|| {
-        // One DOT has 10^2 decimal offset to one BTC
-        let dot_to_btc_decimal_offset = 100;
-
         let dot = Token(DOT);
+        let one_dot = DOT.one();
         let ibtc = Token(IBTC);
+        let one_ibtc = IBTC.one();
 
-        assert_ok!(RuntimeCall::Tokens(TokensCall::set_balance {
-            who: account_of(USER),
-            currency_id: ibtc,
-            new_free: 1000,
-            new_reserved: 0
-        })
-        .dispatch(RuntimeOrigin::root()));
+        set_balance(account_of(USER), ibtc, 1000 * one_ibtc);
+        set_balance(account_of(USER), ibtc, 1000 * one_dot);
 
         // deposit DOT, enable as collateral, and also borrow DOT
         assert_ok!(RuntimeCall::Loans(LoansCall::mint {
             asset_id: dot,
-            mint_amount: 1000 * dot_to_btc_decimal_offset,
+            mint_amount: 1000 * one_dot,
         })
         .dispatch(origin_of(account_of(USER))));
         assert_ok!(RuntimeCall::Loans(LoansCall::deposit_all_collateral { asset_id: dot })
             .dispatch(origin_of(account_of(USER))));
         assert_ok!(RuntimeCall::Loans(LoansCall::borrow {
             asset_id: dot,
-            borrow_amount: 300 * dot_to_btc_decimal_offset
+            borrow_amount: 300 * one_dot
         })
         .dispatch(origin_of(account_of(USER))));
 
-        // deposit BTC, enable as collateral
+        // deposit just enough IBTC as collateral to cover the existing loan
         assert_ok!(RuntimeCall::Loans(LoansCall::mint {
             asset_id: ibtc,
-            mint_amount: 5,
+            mint_amount: one_ibtc / 5,
         })
         .dispatch(origin_of(account_of(USER))));
         assert_ok!(RuntimeCall::Loans(LoansCall::deposit_all_collateral { asset_id: ibtc })
             .dispatch(origin_of(account_of(USER))));
 
-        // must be able to disable DOT as collateral, because the BTC collateral is enough
-        // to cover the existing loan
+        // must be able to disable DOT as collateral, because the IBTC collateral suffices
         assert_ok!(RuntimeCall::Loans(LoansCall::withdraw_all_collateral { asset_id: dot })
             .dispatch(origin_of(account_of(USER))));
     });

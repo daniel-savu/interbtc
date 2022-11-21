@@ -1,5 +1,5 @@
 use crate::{
-    mock::{convert_to, new_test_ext, with_price, CurrencyConvert, Loans, RuntimeOrigin, Test, Tokens, ALICE, BOB},
+    mock::{new_test_ext, with_price, CurrencyConvert, Loans, RuntimeOrigin, Test, Tokens, ALICE, BOB},
     tests::unit,
     Error, MarketState,
 };

@@ -74,10 +74,7 @@ mod conversions {
         }
 
         pub fn to_unsigned_fixed_point(&self) -> Result<UnsignedFixedPoint<T>, DispatchError> {
-            let unsigned_inner =
-                TryInto::<BalanceOf<T>>::try_into(self.amount).map_err(|_| Error::<T>::TryIntoIntError)?;
-            let unsigned_fixed_point = <T as pallet::Config>::UnsignedFixedPoint::checked_from_integer(unsigned_inner)
-                .ok_or(Error::<T>::TryIntoIntError)?;
+            let unsigned_fixed_point = <T as pallet::Config>::UnsignedFixedPoint::from_inner(self.amount);
             Ok(unsigned_fixed_point)
         }
 

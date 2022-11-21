@@ -21,22 +21,17 @@ use crate as loans;
 
 use currency::Amount;
 use frame_benchmarking::whitelisted_caller;
-use frame_support::{
-    construct_runtime, parameter_types,
-    traits::{Everything, SortedMembers},
-    PalletId,
-};
+use frame_support::{construct_runtime, parameter_types, traits::Everything, PalletId};
 use frame_system::EnsureRoot;
 use mocktopus::{macros::mockable, mocking::MockResult};
-use orml_traits::{currency::MutationHooks, parameter_type_with_key, DataFeeder, DataProvider, DataProviderExtended};
+use orml_traits::{currency::MutationHooks, parameter_type_with_key};
 use primitives::{
-    CurrencyId::{ForeignAsset, LendToken, Token},
-    Moment, PriceDetail, DOT, IBTC, INTR, KBTC, KINT, KSM,
+    CurrencyId::{LendToken, Token},
+    DOT, IBTC, INTR, KBTC, KINT, KSM,
 };
 use sp_core::H256;
 use sp_runtime::{testing::Header, traits::IdentityLookup, AccountId32, FixedI128};
 use sp_std::vec::Vec;
-use std::{cell::RefCell, collections::HashMap};
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -160,7 +155,7 @@ impl currency::CurrencyConversion<currency::Amount<Test>, CurrencyId> for Curren
     }
 }
 
-pub fn convert_to(to: CurrencyId, amount: Balance) -> Result<Balance, sp_runtime::DispatchError> {
+pub fn convert_to(_to: CurrencyId, amount: Balance) -> Result<Balance, sp_runtime::DispatchError> {
     Ok(amount) // default conversion 1:1 - overwritable with mocktopus
 }
 
@@ -191,8 +186,6 @@ parameter_types! {
 
 parameter_types! {
     pub const LoansPalletId: PalletId = PalletId(*b"par/loan");
-    pub const RewardAssetId: CurrencyId = Token(KINT);
-    pub const ReferenceAssetId: CurrencyId = Token(KBTC);
 }
 
 impl Config for Test {
@@ -203,8 +196,8 @@ impl Config for Test {
     type WeightInfo = ();
     type UnixTime = TimestampPallet;
     type Assets = Tokens;
-    type RewardAssetId = RewardAssetId;
-    type ReferenceAssetId = ReferenceAssetId;
+    type RewardAssetId = GetNativeCurrencyId;
+    type ReferenceAssetId = GetWrappedCurrencyId;
 }
 
 pub const LEND_DOT: CurrencyId = LendToken(1);
@@ -219,20 +212,24 @@ pub const DEFAULT_MIN_EXCHANGE_RATE: u128 = 20_000_000_000_000_000; // 0.02
 #[cfg(test)]
 pub fn with_price(
     maybe_currency_price: Option<(CurrencyId, FixedU128)>,
-) -> impl Fn(&Amount<Test>, CurrencyId) -> MockResult<(&Amount<Test>, CurrencyId), Result<Amount<Test>, DispatchError>> {
+) -> impl Fn(&Amount<Test>, CurrencyId) -> MockResult<(&Amount<Test>, CurrencyId), Result<Amount<Test>, DispatchError>>
+{
     move |amount: &Amount<Test>, to: CurrencyId| {
         // The default is a 1:1 exchange rate
         let (custom_currency, custom_price) = maybe_currency_price.unwrap_or((amount.currency(), FixedU128::one()));
         match (amount.currency(), to) {
-            (custom_currency, DEFAULT_WRAPPED_CURRENCY) => {
+            currencies if currencies == (custom_currency, DEFAULT_WRAPPED_CURRENCY) => {
                 let fixed_point_amount = amount.to_unsigned_fixed_point().unwrap();
                 let new_amount = fixed_point_amount.mul(custom_price);
                 return MockResult::Return(Amount::from_unsigned_fixed_point(new_amount, to));
             }
-            (DEFAULT_WRAPPED_CURRENCY, custom_currency) => {
+            currencies if currencies == (DEFAULT_WRAPPED_CURRENCY, custom_currency) => {
                 let fixed_point_amount = amount.to_unsigned_fixed_point().unwrap();
                 let new_amount = fixed_point_amount.div(custom_price);
                 return MockResult::Return(Amount::from_unsigned_fixed_point(new_amount, to));
+            }
+            (_, currency) | (currency, _) if currency == DEFAULT_WRAPPED_CURRENCY => {
+                return MockResult::Return(Ok(amount.clone()));
             }
             (_, _) => return MockResult::Return(Err(Error::<Test>::InvalidExchangeRate.into())),
         }
@@ -242,7 +239,7 @@ pub fn with_price(
 #[cfg(test)]
 pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
     use currency::CurrencyConversion;
-    use mocktopus::mocking::{MockResult, Mockable};
+    use mocktopus::mocking::Mockable;
 
     let mut t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
 
@@ -268,6 +265,7 @@ pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
         Tokens::set_balance(RuntimeOrigin::root(), DAVE, Token(DOT), 1000_000000000000, 0).unwrap();
         Tokens::set_balance(RuntimeOrigin::root(), DAVE, Token(KBTC), 1000_000000000000, 0).unwrap();
         Tokens::set_balance(RuntimeOrigin::root(), DAVE, Token(KINT), 1000_000000000000, 0).unwrap();
+        Tokens::set_balance(RuntimeOrigin::root(), DAVE, Token(INTR), 1000_000000000000, 0).unwrap();
         Tokens::set_balance(
             RuntimeOrigin::root(),
             whitelisted_caller(),

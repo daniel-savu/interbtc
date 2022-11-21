@@ -24,15 +24,15 @@ mod market;
 use currency::CurrencyConversion;
 use frame_support::{assert_noop, assert_ok};
 
-use mocktopus::mocking::{MockResult, Mockable};
+use mocktopus::mocking::Mockable;
 use sp_runtime::{
     traits::{CheckedDiv, One, Saturating},
     FixedU128, Permill,
 };
 
 use primitives::{
-    CurrencyId::Token, DOT as DOT_CURRENCY, IBTC as IBTC_CURRENCY, KBTC as KBTC_CURRENCY, KINT as KINT_CURRENCY,
-    KSM as KSM_CURRENCY,
+    CurrencyId::Token, DOT as DOT_CURRENCY, IBTC as IBTC_CURRENCY, INTR as INTR_CURRENCY, KBTC as KBTC_CURRENCY,
+    KINT as KINT_CURRENCY, KSM as KSM_CURRENCY,
 };
 
 use crate::{
@@ -45,6 +45,7 @@ const KSM: CurrencyId = Token(KSM_CURRENCY);
 const USDT: CurrencyId = Token(KBTC_CURRENCY);
 const IBTC: CurrencyId = Token(IBTC_CURRENCY);
 const KINT: CurrencyId = Token(KINT_CURRENCY);
+const INTR: CurrencyId = Token(INTR_CURRENCY);
 
 #[test]
 fn init_minting_ok() {
@@ -957,17 +958,17 @@ fn ensure_valid_exchange_rate_works() {
 #[test]
 fn withdraw_missing_reward_works() {
     new_test_ext().execute_with(|| {
-        assert_eq!(Tokens::balance(KINT, &DAVE), unit(1000));
+        assert_eq!(Tokens::balance(INTR, &DAVE), unit(1000));
 
         assert_ok!(Loans::add_reward(RuntimeOrigin::signed(DAVE), unit(100)));
 
         assert_ok!(Loans::withdraw_missing_reward(RuntimeOrigin::root(), ALICE, unit(40),));
 
-        assert_eq!(Tokens::balance(KINT, &DAVE), unit(900));
+        assert_eq!(Tokens::balance(INTR, &DAVE), unit(900));
 
-        assert_eq!(Tokens::balance(KINT, &ALICE), unit(40));
+        assert_eq!(Tokens::balance(INTR, &ALICE), unit(40));
 
-        assert_eq!(Tokens::balance(KINT, &Loans::reward_account_id().unwrap()), unit(60));
+        assert_eq!(Tokens::balance(INTR, &Loans::reward_account_id().unwrap()), unit(60));
     })
 }
 
@@ -1174,10 +1175,10 @@ fn reward_calculation_one_player_in_multi_markets_works() {
         _run_to_block(80);
         assert_ok!(Loans::add_reward(RuntimeOrigin::signed(DAVE), unit(200)));
         assert_ok!(Loans::claim_reward(RuntimeOrigin::signed(ALICE)));
-        assert_eq!(Tokens::balance(KINT, &DAVE), unit(800));
-        assert_eq!(almost_equal(Tokens::balance(KINT, &ALICE), unit(130)), true);
+        assert_eq!(Tokens::balance(INTR, &DAVE), unit(800));
+        assert_eq!(almost_equal(Tokens::balance(INTR, &ALICE), unit(130)), true);
         assert_eq!(
-            almost_equal(Tokens::balance(KINT, &Loans::reward_account_id().unwrap()), unit(70)),
+            almost_equal(Tokens::balance(INTR, &Loans::reward_account_id().unwrap()), unit(70)),
             true
         );
         assert_ok!(Loans::update_market_reward_speed(
@@ -1193,7 +1194,7 @@ fn reward_calculation_one_player_in_multi_markets_works() {
         // KSM borrow:0     KSM borrow reward: 20
         _run_to_block(90);
         assert_ok!(Loans::claim_reward(RuntimeOrigin::signed(ALICE)));
-        assert_eq!(almost_equal(Tokens::balance(KINT, &ALICE), unit(140)), true);
+        assert_eq!(almost_equal(Tokens::balance(INTR, &ALICE), unit(140)), true);
     })
 }
 
@@ -1302,11 +1303,11 @@ fn reward_calculation_multi_player_in_one_market_works() {
         assert_ok!(Loans::add_reward(RuntimeOrigin::signed(DAVE), unit(200)));
         assert_ok!(Loans::claim_reward_for_market(RuntimeOrigin::signed(ALICE), DOT));
         assert_ok!(Loans::claim_reward_for_market(RuntimeOrigin::signed(BOB), DOT));
-        assert_eq!(Tokens::balance(KINT, &DAVE), unit(800));
-        assert_eq!(almost_equal(Tokens::balance(KINT, &ALICE), unit(58)), true);
-        assert_eq!(almost_equal(Tokens::balance(KINT, &BOB), unit(22)), true);
+        assert_eq!(Tokens::balance(INTR, &DAVE), unit(800));
+        assert_eq!(almost_equal(Tokens::balance(INTR, &ALICE), unit(58)), true);
+        assert_eq!(almost_equal(Tokens::balance(INTR, &BOB), unit(22)), true);
         assert_eq!(
-            almost_equal(Tokens::balance(KINT, &Loans::reward_account_id().unwrap()), unit(120)),
+            almost_equal(Tokens::balance(INTR, &Loans::reward_account_id().unwrap()), unit(120)),
             true
         );
     })

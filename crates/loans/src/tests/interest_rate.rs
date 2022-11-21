@@ -1,7 +1,7 @@
 use crate::{mock::*, tests::Loans, Markets};
 use currency::{Amount, CurrencyConversion};
 use frame_support::assert_ok;
-use mocktopus::mocking::{MockResult, Mockable};
+use mocktopus::mocking::Mockable;
 use primitives::{CurrencyId::Token, Rate, Ratio, DOT, KSM, SECONDS_PER_YEAR};
 use sp_runtime::{
     traits::{CheckedDiv, One, Saturating},
