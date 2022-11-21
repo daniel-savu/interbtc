@@ -219,22 +219,22 @@ pub const DEFAULT_MIN_EXCHANGE_RATE: u128 = 20_000_000_000_000_000; // 0.02
 #[cfg(test)]
 pub fn with_price(
     maybe_currency_price: Option<(CurrencyId, FixedU128)>,
-) -> impl Fn(Amount<Test>, CurrencyId) -> MockResult<(Amount<Test>, CurrencyId), Result<Amount<Test>, DispatchError>> {
-    move |amount: Amount<Test>, to: CurrencyId| {
-        if to == DEFAULT_WRAPPED_CURRENCY {
-            if let Some((currency, price)) = maybe_currency_price && amount.currency() == currency {
+) -> impl Fn(&Amount<Test>, CurrencyId) -> MockResult<(&Amount<Test>, CurrencyId), Result<Amount<Test>, DispatchError>> {
+    move |amount: &Amount<Test>, to: CurrencyId| {
+        // The default is a 1:1 exchange rate
+        let (custom_currency, custom_price) = maybe_currency_price.unwrap_or((amount.currency(), FixedU128::one()));
+        match (amount.currency(), to) {
+            (custom_currency, DEFAULT_WRAPPED_CURRENCY) => {
                 let fixed_point_amount = amount.to_unsigned_fixed_point().unwrap();
-                let new_amount = fixed_point_amount.mul(price);
-                MockResult::Return(Amount::from_unsigned_fixed_point(new_amount, to))
-            } else {
-                // The default is a 1:1 exchange rate
-                MockResult::Return(Ok(Amount::new(amount.amount(), to)))
+                let new_amount = fixed_point_amount.mul(custom_price);
+                return MockResult::Return(Amount::from_unsigned_fixed_point(new_amount, to));
             }
-        } else if amount.currency() == DEFAULT_WRAPPED_CURRENCY {
-            // The default is a 1:1 exchange rate
-            MockResult::Return(Ok(Amount::new(amount.amount(), to)))
-        } else {
-            MockResult::Return(Err(Error::<Test>::InvalidExchangeRate.into()))
+            (DEFAULT_WRAPPED_CURRENCY, custom_currency) => {
+                let fixed_point_amount = amount.to_unsigned_fixed_point().unwrap();
+                let new_amount = fixed_point_amount.div(custom_price);
+                return MockResult::Return(Amount::from_unsigned_fixed_point(new_amount, to));
+            }
+            (_, _) => return MockResult::Return(Err(Error::<Test>::InvalidExchangeRate.into())),
         }
     }
 }
