@@ -11,6 +11,9 @@ use sp_runtime::FixedPointNumber;
 #[test]
 fn exceeded_supply_cap() {
     new_test_ext().execute_with(|| {
+        // TODO: This test fails because an overflow occurs when more than ~5 million DOT are deposited.
+        // The overflow did not occur when interest rates were computed using `u128`, but occur now with the use of
+        // `FixedU128`. Double check whether this can be avoided with the FixedPoint implementation.
         Tokens::set_balance(RuntimeOrigin::root(), ALICE, Token(DOT), million_unit(1001), 0).unwrap();
         let amount = million_unit(501);
         assert_ok!(Loans::mint(RuntimeOrigin::signed(ALICE), Token(DOT), amount));

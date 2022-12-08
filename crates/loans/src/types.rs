@@ -4,6 +4,8 @@ use frame_support::pallet_prelude::*;
 use primitives::{CurrencyId, Liquidity, Rate, Ratio, Shortfall};
 use scale_info::TypeInfo;
 
+pub(crate) type UnsignedFixedPoint<T> = <T as currency::Config>::UnsignedFixedPoint;
+
 /// Container for account liquidity information
 #[derive(Encode, Decode, Eq, PartialEq, Clone, RuntimeDebug, TypeInfo)]
 pub struct AccountLiquidity<T: Config> {
@@ -81,8 +83,8 @@ pub struct Market<Balance> {
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, Default)]
-pub struct RewardMarketState<BlockNumber, Balance> {
-    pub index: Balance,
+pub struct RewardMarketState<BlockNumber, Rate> {
+    pub index: Rate,
     /// total amount of staking asset user deposited
     pub block: BlockNumber,
 }

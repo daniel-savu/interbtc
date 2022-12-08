@@ -40,7 +40,6 @@ use frame_support::{
     transactional, PalletId,
 };
 use frame_system::pallet_prelude::*;
-use num_traits::cast::ToPrimitive;
 use orml_traits::{MultiCurrency, MultiReservableCurrency};
 pub use pallet::*;
 use primitives::{Balance, CurrencyId, Rate, Ratio, Timestamp};
@@ -52,7 +51,7 @@ use sp_runtime::{
     ArithmeticError, FixedPointNumber, FixedU128,
 };
 use sp_std::{marker, result::Result};
-use traits::{ConvertToBigUint, LoansApi as LoansTrait, LoansMarketDataProvider, MarketInfo, MarketStatus};
+use traits::{LoansApi as LoansTrait, LoansMarketDataProvider, MarketInfo, MarketStatus};
 
 pub use orml_traits::currency::{OnDeposit, OnSlash, OnTransfer};
 use sp_io::hashing::blake2_256;
@@ -279,6 +278,8 @@ pub mod pallet {
         CodecError,
         /// Collateral is reserved and cannot be liquidated
         CollateralReserved,
+        /// Unable to convert value.
+        TryIntoIntError,
     }
 
     #[pallet::event]
@@ -334,9 +335,9 @@ pub mod pallet {
         /// Event emitted when market reward speed updated.
         MarketRewardSpeedUpdated(AssetIdOf<T>, BalanceOf<T>, BalanceOf<T>),
         /// Deposited when Reward is distributed to a supplier
-        DistributedSupplierReward(AssetIdOf<T>, T::AccountId, BalanceOf<T>, BalanceOf<T>),
+        DistributedSupplierReward(AssetIdOf<T>, T::AccountId, BalanceOf<T>, Rate),
         /// Deposited when Reward is distributed to a borrower
-        DistributedBorrowerReward(AssetIdOf<T>, T::AccountId, BalanceOf<T>, BalanceOf<T>),
+        DistributedBorrowerReward(AssetIdOf<T>, T::AccountId, BalanceOf<T>, Rate),
         /// Reward Paid for user
         RewardPaid(T::AccountId, BalanceOf<T>),
         /// Event emitted when the incentive reserves are redeemed and transfer to receiver's account
@@ -446,25 +447,25 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn reward_supply_state)]
     pub type RewardSupplyState<T: Config> =
-        StorageMap<_, Blake2_128Concat, AssetIdOf<T>, RewardMarketState<T::BlockNumber, BalanceOf<T>>, ValueQuery>;
+        StorageMap<_, Blake2_128Concat, AssetIdOf<T>, RewardMarketState<T::BlockNumber, Rate>, ValueQuery>;
 
     /// The Reward market borrow state for each market
     #[pallet::storage]
     #[pallet::getter(fn reward_borrow_state)]
     pub type RewardBorrowState<T: Config> =
-        StorageMap<_, Blake2_128Concat, AssetIdOf<T>, RewardMarketState<T::BlockNumber, BalanceOf<T>>, ValueQuery>;
+        StorageMap<_, Blake2_128Concat, AssetIdOf<T>, RewardMarketState<T::BlockNumber, Rate>, ValueQuery>;
 
     ///  The Reward index for each market for each supplier as of the last time they accrued Reward
     #[pallet::storage]
     #[pallet::getter(fn reward_supplier_index)]
     pub type RewardSupplierIndex<T: Config> =
-        StorageDoubleMap<_, Blake2_128Concat, AssetIdOf<T>, Blake2_128Concat, T::AccountId, BalanceOf<T>, ValueQuery>;
+        StorageDoubleMap<_, Blake2_128Concat, AssetIdOf<T>, Blake2_128Concat, T::AccountId, Rate, ValueQuery>;
 
     ///  The Reward index for each market for each borrower as of the last time they accrued Reward
     #[pallet::storage]
     #[pallet::getter(fn reward_borrower_index)]
     pub type RewardBorrowerIndex<T: Config> =
-        StorageDoubleMap<_, Blake2_128Concat, AssetIdOf<T>, Blake2_128Concat, T::AccountId, BalanceOf<T>, ValueQuery>;
+        StorageDoubleMap<_, Blake2_128Concat, AssetIdOf<T>, Blake2_128Concat, T::AccountId, Rate, ValueQuery>;
 
     /// The reward accrued but not yet transferred to each user.
     #[pallet::storage]

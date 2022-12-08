@@ -15,10 +15,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use primitives::TruncateFixedPointToInt;
 use sp_io::hashing::blake2_256;
 use sp_runtime::{traits::Zero, DispatchResult};
 
-use crate::*;
+use crate::{types::UnsignedFixedPoint, *};
 
 impl<T: Config> Pallet<T> {
     pub(crate) fn reward_account_id() -> Result<T::AccountId, DispatchError> {
@@ -27,38 +28,36 @@ impl<T: Config> Pallet<T> {
         Ok(T::AccountId::decode(&mut &entropy[..]).map_err(|_| Error::<T>::CodecError)?)
     }
 
-    fn reward_scale() -> u128 {
-        10_u128.pow(12)
-    }
-
     fn calculate_reward_delta_index(
         delta_block: T::BlockNumber,
         reward_speed: BalanceOf<T>,
         total_share: BalanceOf<T>,
-    ) -> Result<u128, sp_runtime::DispatchError> {
+    ) -> Result<UnsignedFixedPoint<T>, sp_runtime::DispatchError> {
         if total_share.is_zero() {
-            return Ok(0);
+            return Ok(UnsignedFixedPoint::<T>::zero());
         }
-        let delta_block: BalanceOf<T> = delta_block.saturated_into();
+        let delta_block = UnsignedFixedPoint::<T>::checked_from_integer(delta_block.saturated_into::<BalanceOf<T>>())
+            .ok_or(Error::<T>::TryIntoIntError)?;
+        let reward_speed =
+            UnsignedFixedPoint::<T>::checked_from_integer(reward_speed).ok_or(Error::<T>::TryIntoIntError)?;
+        let total_share =
+            UnsignedFixedPoint::<T>::checked_from_integer(total_share).ok_or(Error::<T>::TryIntoIntError)?;
+
         let delta_index = delta_block
-            .get_big_uint()
-            .checked_mul(&reward_speed.get_big_uint())
-            .and_then(|r| r.checked_mul(&Self::reward_scale().get_big_uint()))
-            .and_then(|r| r.checked_div(&total_share.get_big_uint()))
-            .and_then(|r| r.to_u128())
+            .checked_mul(&reward_speed)
+            .and_then(|r| r.checked_div(&total_share))
             .ok_or(ArithmeticError::Overflow)?;
         Ok(delta_index)
     }
 
     fn calculate_reward_delta(
         share: BalanceOf<T>,
-        reward_delta_index: u128,
+        reward_delta_index: UnsignedFixedPoint<T>,
     ) -> Result<u128, sp_runtime::DispatchError> {
+        let share = UnsignedFixedPoint::<T>::checked_from_integer(share).ok_or(Error::<T>::TryIntoIntError)?;
         let reward_delta = share
-            .get_big_uint()
-            .checked_mul(&reward_delta_index.get_big_uint())
-            .and_then(|r| r.checked_div(&Self::reward_scale().get_big_uint()))
-            .and_then(|r| r.to_u128())
+            .checked_mul(&reward_delta_index)
+            .and_then(|r| r.truncate_to_inner())
             .ok_or(ArithmeticError::Overflow)?;
         Ok(reward_delta)
     }
@@ -76,7 +75,7 @@ impl<T: Config> Pallet<T> {
                 let delta_index = Self::calculate_reward_delta_index(delta_block, supply_speed, total_supply)?;
                 supply_state.index = supply_state
                     .index
-                    .checked_add(delta_index)
+                    .checked_add(&delta_index)
                     .ok_or(ArithmeticError::Overflow)?;
             }
             supply_state.block = current_block_number;
@@ -103,7 +102,7 @@ impl<T: Config> Pallet<T> {
                 let delta_index = Self::calculate_reward_delta_index(delta_block, borrow_speed, base_borrow_amount)?;
                 borrow_state.index = borrow_state
                     .index
-                    .checked_add(delta_index)
+                    .checked_add(&delta_index)
                     .ok_or(ArithmeticError::Overflow)?;
             }
             borrow_state.block = current_block_number;
@@ -117,7 +116,7 @@ impl<T: Config> Pallet<T> {
             let supply_state = RewardSupplyState::<T>::get(asset_id);
             let delta_index = supply_state
                 .index
-                .checked_sub(*supplier_index)
+                .checked_sub(supplier_index)
                 .ok_or(ArithmeticError::Underflow)?;
             *supplier_index = supply_state.index;
 
@@ -148,7 +147,7 @@ impl<T: Config> Pallet<T> {
             let borrow_state = RewardBorrowState::<T>::get(asset_id);
             let delta_index = borrow_state
                 .index
-                .checked_sub(*borrower_index)
+                .checked_sub(borrower_index)
                 .ok_or(ArithmeticError::Underflow)?;
             *borrower_index = borrow_state.index;
 

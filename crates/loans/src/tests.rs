@@ -1033,10 +1033,10 @@ fn reward_calculation_one_player_in_multi_markets_works() {
         // check status
         let supply_state = Loans::reward_supply_state(DOT);
         assert_eq!(supply_state.block, 10);
-        assert_eq!(Loans::reward_supplier_index(DOT, ALICE), 0);
+        assert_eq!(Loans::reward_supplier_index(DOT, ALICE).is_zero(), true);
         let borrow_state = Loans::reward_borrow_state(DOT);
         assert_eq!(borrow_state.block, 10);
-        assert_eq!(Loans::reward_borrower_index(DOT, ALICE), 0);
+        assert_eq!(Loans::reward_borrower_index(DOT, ALICE).is_zero(), true);
         // DOT supply:100   DOT supply reward: 0
         // DOT borrow:10    DOT borrow reward: 0
         // KSM supply:100   KSM supply reward: 0
